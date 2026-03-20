@@ -1,0 +1,14 @@
+# depslib dependency file v1.0
+1774003733 source:c:\users\rin\desktop\111\156\untitled1.c
+	<graphics.h>
+	<conio.h>
+	<stdlib.h>
+	<time.h>
+	<string.h>
+	<stdio.h>
+
+1773999701 c:\users\rin\downloads\codeblocks-ep\codeblocks-ep\sdk\winbgim\include\graphics.h
+	<windows.h>
+	<limits.h>
+	<sstream>
+
