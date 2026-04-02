@@ -13,10 +13,12 @@ const int START_Y = 50;
 const int WIN_W = 800;
 const int WIN_H = 500;
 
+// 棋盤：每格存圖片檔名
 char board[ROWS][COLS][40];
+// 是否已翻開
 bool revealed[ROWS][COLS];
 
-// 32 顆暗棋，依你的圖片檔名
+// 所有棋子圖片（共 32 顆）
 const char *pieces[32] = {
     // red 16
     "redmaster.bmp",
@@ -37,11 +39,12 @@ const char *pieces[32] = {
     "blacksoldier.bmp", "blacksoldier.bmp", "blacksoldier.bmp", "blacksoldier.bmp", "blacksoldier.bmp"
 };
 
+// 初始化棋盤（洗牌 + 蓋牌）
 void initBoard() {
     int idx[32];
     for (int i = 0; i < 32; i++) idx[i] = i;
 
-    // 洗牌
+    // 洗牌（隨機交換）
     for (int i = 0; i < 32; i++) {
         int j = rand() % 32;
         int t = idx[i];
@@ -49,15 +52,17 @@ void initBoard() {
         idx[j] = t;
     }
 
+    // 填入棋盤
     int k = 0;
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c < COLS; c++) {
             strcpy(board[r][c], pieces[idx[k++]]);
-            revealed[r][c] = false;
+            revealed[r][c] = false; // 一開始全部蓋住
         }
     }
 }
 
+// 畫單一格
 void drawOneCell(int r, int c) {
     int x1 = START_X + c * CELL;
     int y1 = START_Y + r * CELL;
@@ -83,13 +88,15 @@ void drawOneCell(int r, int c) {
     }
 }
 
+// 畫整個棋盤
 void drawBoard() {
-    cleardevice();
+    cleardevice(); // 清畫面
 
     setcolor(WHITE);
     outtextxy(50, 20, "Dark Chess");
     outtextxy(170, 20, "Player click one covered piece");
 
+    // 畫 4x8 棋盤
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c < COLS; c++) {
             drawOneCell(r, c);
@@ -97,15 +104,18 @@ void drawBoard() {
     }
 }
 
+// 把滑鼠座標轉成棋盤格子
 void clickToCell(int mx, int my, int &r, int &c) {
     c = (mx - START_X) / CELL;
     r = (my - START_Y) / CELL;
 }
 
+/ 判斷是否在棋盤內
 bool inBoard(int r, int c) {
     return r >= 0 && r < ROWS && c >= 0 && c < COLS;
 }
 
+// 判斷是否全部翻開
 bool allRevealed() {
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c < COLS; c++) {
@@ -115,10 +125,12 @@ bool allRevealed() {
     return true;
 }
 
+// 電腦隨機翻一顆
 void computerFlip() {
     int listR[32], listC[32];
     int cnt = 0;
 
+    // 找所有還沒翻的格子
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c < COLS; c++) {
             if (!revealed[r][c]) {
@@ -129,6 +141,7 @@ void computerFlip() {
         }
     }
 
+    // 隨機選一顆翻開
     if (cnt > 0) {
         int pick = rand() % cnt;
         int rr = listR[pick];
@@ -138,8 +151,9 @@ void computerFlip() {
 }
 
 int main() {
-    srand((unsigned)time(NULL));
+    srand((unsigned)time(NULL));// 初始化亂數
 
+    //選擇先手或後手
     int playerFirst;
     printf("Choose turn order:\n");
     printf("1. Player first\n");
@@ -147,25 +161,31 @@ int main() {
     printf("Enter: ");
     scanf("%d", &playerFirst);
 
+    // 建立視窗
     initwindow(WIN_W, WIN_H, "Dark Chess");
     setbkcolor(BLACK);
     cleardevice();
 
+    // 初始化棋盤
     initBoard();
     drawBoard();
 
+    //如果玩家選後手 → 電腦先翻
     if (playerFirst == 2) {
         delay(500);         // 稍微停一下（看起來比較自然）
         computerFlip();     // 電腦先翻一顆
         drawBoard();        // 更新畫面
     }
 
+     // 主迴圈
     while (true) {
+        // 如果全部翻完 → 顯示提示
         if (allRevealed()) {
             setcolor(YELLOW);
             outtextxy(50, 400, "All pieces are revealed.");
         }
 
+        // 如果滑鼠點擊
         if (ismouseclick(WM_LBUTTONDOWN)) {
             int mx, my;
             getmouseclick(WM_LBUTTONDOWN, mx, my);
@@ -173,6 +193,7 @@ int main() {
             int r, c;
             clickToCell(mx, my, r, c);
 
+            // 如果點在棋盤內 & 還沒翻
             if (inBoard(r, c) && !revealed[r][c]) {
                 // 玩家翻
                 revealed[r][c] = true;
