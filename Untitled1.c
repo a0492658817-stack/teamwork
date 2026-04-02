@@ -140,12 +140,25 @@ void computerFlip() {
 int main() {
     srand((unsigned)time(NULL));
 
+    int playerFirst;
+    printf("Choose turn order:\n");
+    printf("1. Player first\n");
+    printf("2. Computer first\n");
+    printf("Enter: ");
+    scanf("%d", &playerFirst);
+
     initwindow(WIN_W, WIN_H, "Dark Chess");
     setbkcolor(BLACK);
     cleardevice();
 
     initBoard();
     drawBoard();
+
+    if (playerFirst == 2) {
+        delay(500);         // 稍微停一下（看起來比較自然）
+        computerFlip();     // 電腦先翻一顆
+        drawBoard();        // 更新畫面
+    }
 
     while (true) {
         if (allRevealed()) {
