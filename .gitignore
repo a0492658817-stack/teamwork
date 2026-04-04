@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+
+# CMake generated files
+/build/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+Testing/
+CTestTestfile.cmake
+
+# Build output directories
+/bin/
+/lib/
+
+# CMake internal generator files
+CMakeFiles/
+/build/Makefile
+
+# Code::Blocks
+*.cbp
+*.depend
+*.layout
+
+# VS Code
+.vscode/
+
+# Misc
+.cache/

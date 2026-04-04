@@ -1,0 +1,59 @@
+name: auto-create-pr-on-new-branch
+
+on:
+  push:
+    branches:
+      - "**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open-pr:
+    if: github.event.created == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create PR from new branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const headBranch = context.ref.replace('refs/heads/', '');
+            const defaultBranch = context.payload.repository.default_branch;
+
+            if (headBranch === defaultBranch) {
+              core.info(`Skip: '${headBranch}' is the default branch.`);
+              return;
+            }
+
+            const existing = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              head: `${owner}:${headBranch}`,
+              base: defaultBranch,
+            });
+
+            if (existing.data.length > 0) {
+              core.info(`Skip: PR already exists (#${existing.data[0].number}).`);
+              return;
+            }
+
+            const pr = await github.rest.pulls.create({
+              owner,
+              repo,
+              head: headBranch,
+              base: defaultBranch,
+              title: `Auto PR: ${headBranch} -> ${defaultBranch}`,
+              body: [
+                'This pull request was created automatically when the branch was pushed.',
+                '',
+                `- Source branch: ${headBranch}`,
+                `- Target branch: ${defaultBranch}`,
+              ].join('\n')
+            });
+
+            core.info(`Created PR #${pr.data.number}: ${pr.data.html_url}`);
