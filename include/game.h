@@ -22,6 +22,7 @@ void init_board(GameState *state);
 void click_to_cell(int mouse_x, int mouse_y, int *row, int *col);
 bool in_board(int row, int col);
 bool all_revealed(const GameState *state);
+bool player_flip_from_click(GameState *state, int mouse_x, int mouse_y);
 bool computer_flip(GameState *state);
 const char *image_path_root(void);
 void compose_image_path(const char *filename, char *full_path, size_t full_path_size);

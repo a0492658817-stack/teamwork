@@ -81,12 +81,7 @@ int main(void) {
             int mouseY;
             getmouseclick(WM_LBUTTONDOWN, mouseX, mouseY);
 
-            int row;
-            int col;
-            click_to_cell(mouseX, mouseY, &row, &col);
-
-            if (in_board(row, col) && !state.revealed[row][col]) {
-                state.revealed[row][col] = true;
+            if (player_flip_from_click(&state, mouseX, mouseY)) {
                 draw_board(&state);
 
                 if (!all_revealed(&state)) {

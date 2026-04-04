@@ -15,6 +15,22 @@ static bool has_duplicate_name(char names[][TEAMWORK_PIECE_NAME_LENGTH], int cou
     return false;
 }
 
+static int count_revealed(const GameState *state) {
+    int row;
+    int col;
+    int count;
+
+    count = 0;
+    for (row = 0; row < TEAMWORK_ROWS; ++row) {
+        for (col = 0; col < TEAMWORK_COLS; ++col) {
+            if (state->revealed[row][col]) {
+                ++count;
+            }
+        }
+    }
+    return count;
+}
+
 static void test_initialization(void) {
     GameState state;
     char unique_names[32][TEAMWORK_PIECE_NAME_LENGTH];
@@ -101,10 +117,53 @@ static void test_reveal_flow(void) {
     assert(!computer_flip(&state));
 }
 
+static void test_player_invalid_click_no_flip(void) {
+    GameState state;
+
+    srand(2);
+    init_board(&state);
+
+    assert(!player_flip_from_click(&state, TEAMWORK_START_X - 1, TEAMWORK_START_Y - 1));
+    assert(count_revealed(&state) == 0);
+}
+
+static void test_player_already_revealed_click_no_flip(void) {
+    GameState state;
+    int click_x;
+    int click_y;
+
+    srand(3);
+    init_board(&state);
+
+    click_x = TEAMWORK_START_X + 10;
+    click_y = TEAMWORK_START_Y + 10;
+
+    assert(player_flip_from_click(&state, click_x, click_y));
+    assert(count_revealed(&state) == 1);
+    assert(!player_flip_from_click(&state, click_x, click_y));
+    assert(count_revealed(&state) == 1);
+}
+
+static void test_player_then_computer_single_reveal_each(void) {
+    GameState state;
+
+    srand(4);
+    init_board(&state);
+
+    assert(player_flip_from_click(&state, TEAMWORK_START_X + 20, TEAMWORK_START_Y + 20));
+    assert(count_revealed(&state) == 1);
+
+    assert(computer_flip(&state));
+    assert(count_revealed(&state) == 2);
+}
+
 int main(void) {
     test_initialization();
     test_board_math();
     test_image_path_helpers();
     test_reveal_flow();
+    test_player_invalid_click_no_flip();
+    test_player_already_revealed_click_no_flip();
+    test_player_then_computer_single_reveal_each();
     return 0;
 }

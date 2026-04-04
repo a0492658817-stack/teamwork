@@ -64,6 +64,19 @@ bool all_revealed(const GameState *state) {
     return true;
 }
 
+bool player_flip_from_click(GameState *state, int mouse_x, int mouse_y) {
+    int row;
+    int col;
+
+    click_to_cell(mouse_x, mouse_y, &row, &col);
+    if (!in_board(row, col) || state->revealed[row][col]) {
+        return false;
+    }
+
+    state->revealed[row][col] = true;
+    return true;
+}
+
 void init_board(GameState *state) {
     int indices[32];
     int index;

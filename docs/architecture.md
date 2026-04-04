@@ -22,6 +22,12 @@ This project is organized to keep game logic independent from platform UI code.
 - `src/main.c`: platform entry (WinBGIm on Windows, console fallback elsewhere)
 - `tests/game_tests.c`: core behavior tests without graphics dependency
 
+## Reveal Flow Ownership
+
+- `player_flip_from_click` (core layer) maps mouse coordinates to a board cell and reveals only when the target is inside the board and still covered.
+- `computer_flip` (core layer) reveals one random covered piece.
+- `src/main.c` orchestrates turn flow: valid player reveal -> optional delay -> one computer reveal.
+
 ## Build Flows
 
 - CMake flow:

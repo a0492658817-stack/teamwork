@@ -37,6 +37,14 @@ On Windows, the `teamwork` executable uses WinBGIm. On non-Windows platforms, th
 
 - Runtime images are loaded from `data/images`.
 
+## Reveal Rules
+
+- Player action: click one covered piece to reveal it.
+- Invalid player action: clicking outside the board or clicking an already revealed piece does not change game state.
+- After a valid player reveal, computer reveals exactly one covered piece.
+- The game ends when all pieces are revealed.
+- Core helper API for player click handling is `player_flip_from_click` in `game.h`.
+
 ## CI
 
 GitHub Actions runs the following on push and pull request:
