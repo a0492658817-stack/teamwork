@@ -22,6 +22,21 @@ make run
 
 On Windows, the `teamwork` executable uses WinBGIm.
 
+To enable WinBGIm build on Windows in this repository:
+
+```powershell
+winget install --id CodeBlocks.CodeBlocks.MinGW --accept-source-agreements --accept-package-agreements --silent
+$env:Path = "C:\Program Files\CodeBlocks\MinGW\bin;$env:Path"
+cmake -S . -B build-mingw -G "MinGW Makefiles"
+cmake --build build-mingw
+./bin/teamwork.exe
+```
+
+Notes:
+
+- WinBGIm sources and `libbgi.a` are stored in `third_party/winbgim`.
+- Visual Studio (MSVC) build remains supported, but WinBGIm GUI requires MinGW (`libbgi.a`) or a compatible `bgi.lib`.
+
 On macOS, the `teamwork` executable now uses SDL2 for window rendering when SDL2 is available.
 
 ```bash

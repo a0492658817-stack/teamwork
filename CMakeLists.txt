@@ -5,6 +5,9 @@ project(teamwork LANGUAGES C)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/lib)
@@ -25,18 +28,55 @@ add_executable(teamwork
 target_link_libraries(teamwork PRIVATE teamwork_core)
 
 if(WIN32)
-    target_include_directories(teamwork PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/winbgim
-    )
+    set(WINBGIM_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/third_party/winbgim)
+    set(WINBGIM_LIB ${WINBGIM_ROOT}/libbgi.a)
+    set(WINBGIM_LIB_MSVC ${WINBGIM_ROOT}/bgi.lib)
 
-    target_link_libraries(teamwork PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/winbgim/libbgi.a
-        gdi32
-        comdlg32
-        uuid
-        oleaut32
-        ole32
-    )
+    if(EXISTS ${WINBGIM_ROOT}/graphics.h)
+        if(MSVC)
+            if(EXISTS ${WINBGIM_LIB_MSVC})
+                enable_language(CXX)
+                target_compile_definitions(teamwork PRIVATE TEAMWORK_USE_WINBGIM=1)
+                set_source_files_properties(src/main.c PROPERTIES LANGUAGE CXX)
+
+                target_include_directories(teamwork PRIVATE
+                    ${WINBGIM_ROOT}
+                )
+
+                target_link_libraries(teamwork PRIVATE
+                    ${WINBGIM_LIB_MSVC}
+                    gdi32
+                    comdlg32
+                    uuid
+                    oleaut32
+                    ole32
+                )
+            else()
+                message(WARNING "WinBGIm sources were found, but MSVC requires bgi.lib. Install/use MinGW generator or provide third_party/winbgim/bgi.lib. Building without WinBGIm GUI.")
+            endif()
+        elseif(EXISTS ${WINBGIM_LIB})
+            enable_language(CXX)
+            target_compile_definitions(teamwork PRIVATE TEAMWORK_USE_WINBGIM=1)
+            set_source_files_properties(src/main.c PROPERTIES LANGUAGE CXX)
+
+            target_include_directories(teamwork PRIVATE
+                ${WINBGIM_ROOT}
+            )
+
+            target_link_libraries(teamwork PRIVATE
+                ${WINBGIM_LIB}
+                gdi32
+                comdlg32
+                uuid
+                oleaut32
+                ole32
+            )
+        else()
+            message(WARNING "WinBGIm header found but libbgi.a is missing. Building teamwork without WinBGIm GUI.")
+        endif()
+    else()
+        message(WARNING "WinBGIm not found in third_party/winbgim. Building teamwork without WinBGIm GUI.")
+    endif()
 elseif(APPLE)
     find_package(SDL2 QUIET)
 

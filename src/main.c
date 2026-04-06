@@ -5,7 +5,7 @@
 #include <string.h>
 #include <time.h>
 
-#ifdef _WIN32
+#if defined(_WIN32) && defined(TEAMWORK_USE_WINBGIM)
 #include <conio.h>
 #include <graphics.h>
 
