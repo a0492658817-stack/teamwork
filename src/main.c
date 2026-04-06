@@ -44,6 +44,14 @@ static void draw_board(const GameState *state) {
             draw_one_cell(state, row, col);
         }
     }
+    if (state->selected_row != -1) {
+        int sx = TEAMWORK_START_X + state->selected_col * TEAMWORK_CELL;
+        int sy = TEAMWORK_START_Y + state->selected_row * TEAMWORK_CELL;
+        setcolor(YELLOW);
+        setlinestyle(SOLID_LINE, 0, 3);
+        rectangle(sx, sy, sx + TEAMWORK_CELL, sy + TEAMWORK_CELL);
+        setlinestyle(SOLID_LINE, 0, 1);
+    }
 }
 
 int main(void) {
@@ -81,7 +89,7 @@ int main(void) {
             int mouseY;
             getmouseclick(WM_LBUTTONDOWN, mouseX, mouseY);
 
-            if (player_flip_from_click(&state, mouseX, mouseY)) {
+            if (player_select_or_move(&state, mouseX, mouseY)) {
                 draw_board(&state);
 
                 if (!all_revealed(&state)) {
