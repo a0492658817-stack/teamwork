@@ -265,12 +265,12 @@ int main(void) {
             if (event.type == SDL_QUIT) {
                 running = false;
             } else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
-                if (player_flip_from_click(&state, event.button.x, event.button.y)) {
+                if (player_select_or_move(&state, event.button.x, event.button.y)) {
                     draw_board(renderer, &state, texture_cache, &texture_cache_count);
 
                     if (!all_revealed(&state)) {
                         SDL_Delay(500);
-                        computer_flip(&state);
+                        computer_move(&state);
                         draw_board(renderer, &state, texture_cache, &texture_cache_count);
                     }
                 }
