@@ -20,11 +20,13 @@ target_include_directories(teamwork_core PUBLIC
 
 add_executable(teamwork
     src/main.c
+    src/app.c
 )
 
 target_link_libraries(teamwork PRIVATE teamwork_core)
 
 if(WIN32)
+    target_sources(teamwork PRIVATE src/platform_windows.c)
     target_include_directories(teamwork PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/winbgim
     )
@@ -41,6 +43,7 @@ elseif(APPLE)
     find_package(SDL2 QUIET)
 
     if(SDL2_FOUND)
+        target_sources(teamwork PRIVATE src/platform_sdl.c)
         target_compile_definitions(teamwork PRIVATE TEAMWORK_USE_SDL2=1)
 
         if(TARGET SDL2::SDL2)
@@ -51,7 +54,10 @@ elseif(APPLE)
         endif()
     else()
         message(WARNING "SDL2 not found on macOS. Install SDL2 (e.g. brew install sdl2) to enable GUI rendering.")
+        target_sources(teamwork PRIVATE src/platform_console.c)
     endif()
+else()
+    target_sources(teamwork PRIVATE src/platform_console.c)
 endif()
 
 option(TEAMWORK_BUILD_TESTS "Build unit tests" ON)
