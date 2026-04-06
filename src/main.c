@@ -45,6 +45,14 @@ static void draw_board(const GameState *state) {
             draw_one_cell(state, row, col);
         }
     }
+    if (state->selected_row != -1) {
+        int sx = TEAMWORK_START_X + state->selected_col * TEAMWORK_CELL;
+        int sy = TEAMWORK_START_Y + state->selected_row * TEAMWORK_CELL;
+        setcolor(YELLOW);
+        setlinestyle(SOLID_LINE, 0, 3);
+        rectangle(sx, sy, sx + TEAMWORK_CELL, sy + TEAMWORK_CELL);
+        setlinestyle(SOLID_LINE, 0, 1);
+    }
 }
 
 int main(void) {
@@ -82,7 +90,7 @@ int main(void) {
             int mouseY;
             getmouseclick(WM_LBUTTONDOWN, mouseX, mouseY);
 
-            if (player_flip_from_click(&state, mouseX, mouseY)) {
+            if (player_select_or_move(&state, mouseX, mouseY)) {
                 draw_board(&state);
 
                 if (!all_revealed(&state)) {
@@ -257,12 +265,12 @@ int main(void) {
             if (event.type == SDL_QUIT) {
                 running = false;
             } else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
-                if (player_flip_from_click(&state, event.button.x, event.button.y)) {
+                if (player_select_or_move(&state, event.button.x, event.button.y)) {
                     draw_board(renderer, &state, texture_cache, &texture_cache_count);
 
                     if (!all_revealed(&state)) {
                         SDL_Delay(500);
-                        computer_flip(&state);
+                        computer_move(&state);
                         draw_board(renderer, &state, texture_cache, &texture_cache_count);
                     }
                 }
