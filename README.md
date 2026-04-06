@@ -20,7 +20,18 @@ make test
 make run
 ```
 
-On Windows, the `teamwork` executable uses WinBGIm. On non-Windows platforms, the same entry point builds a console fallback so the core logic and tests still compile.
+On Windows, the `teamwork` executable uses WinBGIm.
+
+On macOS, the `teamwork` executable now uses SDL2 for window rendering when SDL2 is available.
+
+```bash
+brew install sdl2
+cmake -S . -B build
+cmake --build build
+./bin/teamwork
+```
+
+If SDL2 is not found on macOS, the app falls back to the console mode so the core logic and tests still compile.
 
 ## Layout
 

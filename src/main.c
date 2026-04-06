@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #ifdef _WIN32
@@ -105,6 +106,188 @@ int main(void) {
 
     getch();
     closegraph();
+    return 0;
+}
+#elif defined(TEAMWORK_USE_SDL2)
+#if defined(__has_include)
+#if __has_include(<SDL2/SDL.h>)
+#include <SDL2/SDL.h>
+#else
+#include <SDL.h>
+#endif
+#else
+#include <SDL2/SDL.h>
+#endif
+
+typedef struct {
+    char filename[TEAMWORK_PIECE_NAME_LENGTH];
+    SDL_Texture *texture;
+} TextureCacheEntry;
+
+static SDL_Texture *load_texture(SDL_Renderer *renderer, TextureCacheEntry *cache, int *cache_count, const char *filename) {
+    int index;
+    char imagePath[128];
+
+    for (index = 0; index < *cache_count; ++index) {
+        if (strcmp(cache[index].filename, filename) == 0) {
+            return cache[index].texture;
+        }
+    }
+
+    compose_image_path(filename, imagePath, sizeof(imagePath));
+
+    {
+        SDL_Surface *surface = SDL_LoadBMP(imagePath);
+        SDL_Texture *texture;
+        if (surface == NULL) {
+            return NULL;
+        }
+
+        texture = SDL_CreateTextureFromSurface(renderer, surface);
+        SDL_FreeSurface(surface);
+        if (texture == NULL) {
+            return NULL;
+        }
+
+        strncpy(cache[*cache_count].filename, filename, TEAMWORK_PIECE_NAME_LENGTH - 1);
+        cache[*cache_count].filename[TEAMWORK_PIECE_NAME_LENGTH - 1] = '\0';
+        cache[*cache_count].texture = texture;
+        ++(*cache_count);
+        return texture;
+    }
+}
+
+static void draw_one_cell(SDL_Renderer *renderer, const GameState *state, TextureCacheEntry *cache, int *cache_count, int row, int col) {
+    int x1 = TEAMWORK_START_X + col * TEAMWORK_CELL;
+    int y1 = TEAMWORK_START_Y + row * TEAMWORK_CELL;
+    SDL_Rect border = {x1, y1, TEAMWORK_CELL, TEAMWORK_CELL};
+    SDL_Rect dst = {x1 + 5, y1 + 5, TEAMWORK_CELL - 10, TEAMWORK_CELL - 10};
+    SDL_Texture *texture;
+    const char *filename;
+
+    filename = state->revealed[row][col] ? state->board[row][col] : "background.bmp";
+    texture = load_texture(renderer, cache, cache_count, filename);
+
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderDrawRect(renderer, &border);
+
+    if (texture != NULL) {
+        SDL_RenderCopy(renderer, texture, NULL, &dst);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 80, 80, 80, 255);
+        SDL_RenderFillRect(renderer, &dst);
+    }
+}
+
+static void draw_board(SDL_Renderer *renderer, const GameState *state, TextureCacheEntry *cache, int *cache_count) {
+    int row;
+    int col;
+
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+
+    for (row = 0; row < TEAMWORK_ROWS; ++row) {
+        for (col = 0; col < TEAMWORK_COLS; ++col) {
+            draw_one_cell(renderer, state, cache, cache_count, row, col);
+        }
+    }
+
+    if (all_revealed(state)) {
+        SDL_Rect banner = {TEAMWORK_START_X, TEAMWORK_START_Y + TEAMWORK_ROWS * TEAMWORK_CELL + 10, 280, 28};
+        SDL_SetRenderDrawColor(renderer, 255, 215, 0, 255);
+        SDL_RenderDrawRect(renderer, &banner);
+    }
+
+    SDL_RenderPresent(renderer);
+}
+
+int main(void) {
+    GameState state;
+    TextureCacheEntry texture_cache[TEAMWORK_ROWS * TEAMWORK_COLS + 1];
+    int texture_cache_count;
+    SDL_Window *window;
+    SDL_Renderer *renderer;
+    int playerFirst;
+    bool running;
+    int index;
+
+    srand((unsigned)time(NULL));
+
+    printf("Choose turn order:\n");
+    printf("1. Player first\n");
+    printf("2. Computer first\n");
+    printf("Enter: ");
+    if (scanf("%d", &playerFirst) != 1) {
+        playerFirst = 1;
+    }
+
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    window = SDL_CreateWindow(
+        "Dark Chess",
+        SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED,
+        TEAMWORK_WIN_W,
+        TEAMWORK_WIN_H,
+        SDL_WINDOW_SHOWN
+    );
+    if (window == NULL) {
+        fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+        SDL_Quit();
+        return 1;
+    }
+
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (renderer == NULL) {
+        fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return 1;
+    }
+
+    init_board(&state);
+    texture_cache_count = 0;
+    draw_board(renderer, &state, texture_cache, &texture_cache_count);
+
+    if (playerFirst == 2) {
+        SDL_Delay(500);
+        computer_flip(&state);
+        draw_board(renderer, &state, texture_cache, &texture_cache_count);
+    }
+
+    running = true;
+    while (running) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                running = false;
+            } else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
+                if (player_flip_from_click(&state, event.button.x, event.button.y)) {
+                    draw_board(renderer, &state, texture_cache, &texture_cache_count);
+
+                    if (!all_revealed(&state)) {
+                        SDL_Delay(500);
+                        computer_flip(&state);
+                        draw_board(renderer, &state, texture_cache, &texture_cache_count);
+                    }
+                }
+            }
+        }
+
+        SDL_Delay(16);
+    }
+
+    for (index = 0; index < texture_cache_count; ++index) {
+        if (texture_cache[index].texture != NULL) {
+            SDL_DestroyTexture(texture_cache[index].texture);
+        }
+    }
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
     return 0;
 }
 #else

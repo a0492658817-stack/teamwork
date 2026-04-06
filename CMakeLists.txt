@@ -37,6 +37,21 @@ if(WIN32)
         oleaut32
         ole32
     )
+elseif(APPLE)
+    find_package(SDL2 QUIET)
+
+    if(SDL2_FOUND)
+        target_compile_definitions(teamwork PRIVATE TEAMWORK_USE_SDL2=1)
+
+        if(TARGET SDL2::SDL2)
+            target_link_libraries(teamwork PRIVATE SDL2::SDL2)
+        else()
+            target_include_directories(teamwork PRIVATE ${SDL2_INCLUDE_DIRS})
+            target_link_libraries(teamwork PRIVATE ${SDL2_LIBRARIES})
+        endif()
+    else()
+        message(WARNING "SDL2 not found on macOS. Install SDL2 (e.g. brew install sdl2) to enable GUI rendering.")
+    endif()
 endif()
 
 option(TEAMWORK_BUILD_TESTS "Build unit tests" ON)

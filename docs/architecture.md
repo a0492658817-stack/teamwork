@@ -19,7 +19,7 @@ This project is organized to keep game logic independent from platform UI code.
 ## Layering
 
 - `src/game.c` + `include/game.h`: pure C core logic
-- `src/main.c`: platform entry (WinBGIm on Windows, console fallback elsewhere)
+- `src/main.c`: platform entry (WinBGIm on Windows, SDL2 on macOS when available, console fallback otherwise)
 - `tests/game_tests.c`: core behavior tests without graphics dependency
 
 ## Reveal Flow Ownership
