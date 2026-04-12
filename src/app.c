@@ -1,5 +1,4 @@
 #include "app.h"
-
 #include <stdio.h>
 
 int teamwork_prompt_turn_order(void) {
@@ -9,7 +8,12 @@ int teamwork_prompt_turn_order(void) {
     printf("1. Player first\n");
     printf("2. Computer first\n");
     printf("Enter: ");
+
     if (scanf("%d", &player_first) != 1) {
+        player_first = 1;
+    }
+
+    if (player_first != 1 && player_first != 2) {
         player_first = 1;
     }
 
@@ -28,7 +32,7 @@ void teamwork_run_game_session(GameState *state, const TeamworkUi *ui, int playe
 
     if (player_first == 2) {
         ui->delay_ms(ui->context, 500);
-        computer_flip(state);
+        computer_move(state);
         ui->draw_board(ui->context, state);
     }
 
@@ -36,6 +40,7 @@ void teamwork_run_game_session(GameState *state, const TeamworkUi *ui, int playe
         TeamworkUiEvent event;
 
         event = ui->poll_event(ui->context, &mouse_x, &mouse_y);
+
         if (event == TEAMWORK_UI_EVENT_QUIT) {
             break;
         }
@@ -45,7 +50,7 @@ void teamwork_run_game_session(GameState *state, const TeamworkUi *ui, int playe
 
             if (!all_revealed(state)) {
                 ui->delay_ms(ui->context, 500);
-                computer_flip(state);
+                computer_move(state);
                 ui->draw_board(ui->context, state);
             }
         }
