@@ -1,7 +1,9 @@
 #include "app.h"
+#include "platform.h"
 
 #include <conio.h>
 #include <graphics.h>
+#include <stdio.h>
 
 static void draw_one_cell(const GameState *state, int row, int col) {
     int x1 = TEAMWORK_START_X + col * TEAMWORK_CELL;
@@ -72,10 +74,28 @@ int teamwork_run_platform_app(void) {
     TeamworkUi ui;
     GameState state;
     int player_first;
+    int window_id;
+    int graph_error;
 
     player_first = teamwork_prompt_turn_order();
 
-    initwindow(TEAMWORK_WIN_W, TEAMWORK_WIN_H, "Dark Chess");
+    printf("[teamwork] starting WinBGIm...\n");
+    fflush(stdout);
+
+    window_id = initwindow(TEAMWORK_WIN_W, TEAMWORK_WIN_H, "Dark Chess");
+    graph_error = graphresult();
+    if (window_id < 0 || graph_error != grOk) {
+        fprintf(stderr, "[teamwork] WinBGIm init failed: window_id=%d, graph_error=%d (%s)\n",
+                window_id,
+                graph_error,
+                grapherrormsg(graph_error));
+        fflush(stderr);
+        return 1;
+    }
+
+    printf("[teamwork] window created (id=%d).\n", window_id);
+    fflush(stdout);
+
     setbkcolor(BLACK);
     cleardevice();
 
