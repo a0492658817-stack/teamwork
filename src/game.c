@@ -3,6 +3,165 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int piece_camp(const char *piece_name) {
+    if (piece_name == NULL || piece_name[0] == '\0') {
+        return 0;
+    }
+    if (strncmp(piece_name, "red", 3) == 0) {
+        return 1;
+    }
+    if (strncmp(piece_name, "black", 5) == 0) {
+        return 2;
+    }
+    return 0;
+}
+
+static int piece_rank(const char *piece_name) {
+    if (piece_name == NULL || piece_name[0] == '\0') {
+        return 0;
+    }
+    if (strstr(piece_name, "master") != NULL) return 7;
+    if (strstr(piece_name, "knight") != NULL) return 6;
+    if (strstr(piece_name, "elephant") != NULL) return 5;
+    if (strstr(piece_name, "car") != NULL) return 4;
+    if (strstr(piece_name, "horse") != NULL) return 3;
+    if (strstr(piece_name, "cannon") != NULL) return 2;
+    if (strstr(piece_name, "soldier") != NULL) return 1;
+    return 0;
+}
+
+static bool is_computer_piece(const char *piece_name) {
+    return piece_camp(piece_name) == 2;
+}
+
+static bool is_threatened_at(const GameState *state, int row, int col) {
+    static const int dirs[4][2] = {{-1,0},{1,0},{0,-1},{0,1}};
+    const char *self_piece;
+    int self_camp;
+    int self_rank;
+    int d;
+
+    if (!in_board(row, col) || !state->revealed[row][col]) {
+        return false;
+    }
+
+    self_piece = state->board[row][col];
+    if (self_piece[0] == '\0') {
+        return false;
+    }
+
+    self_camp = piece_camp(self_piece);
+    self_rank = piece_rank(self_piece);
+
+    if (self_camp == 0 || self_rank == 0) {
+        return false;
+    }
+
+    for (d = 0; d < 4; ++d) {
+        int nr = row + dirs[d][0];
+        int nc = col + dirs[d][1];
+        const char *enemy_piece;
+
+        if (!in_board(nr, nc) || !state->revealed[nr][nc]) {
+            continue;
+        }
+
+        enemy_piece = state->board[nr][nc];
+        if (enemy_piece[0] == '\0') {
+            continue;
+        }
+
+        if (piece_camp(enemy_piece) != self_camp && piece_rank(enemy_piece) > self_rank) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool is_threatened_after_move(const GameState *state,
+                                     int from_row, int from_col,
+                                     int to_row,   int to_col) {
+    static const int dirs[4][2] = {{-1,0},{1,0},{0,-1},{0,1}};
+    const char *self_piece;
+    int self_camp;
+    int self_rank;
+    int d;
+
+    if (!in_board(to_row, to_col)) {
+        return false;
+    }
+
+    self_piece = state->board[from_row][from_col];
+    self_camp = piece_camp(self_piece);
+    self_rank = piece_rank(self_piece);
+
+    if (self_camp == 0 || self_rank == 0) {
+        return false;
+    }
+
+    for (d = 0; d < 4; ++d) {
+        int nr = to_row + dirs[d][0];
+        int nc = to_col + dirs[d][1];
+        const char *enemy_piece;
+
+        if (!in_board(nr, nc) || !state->revealed[nr][nc]) {
+            continue;
+        }
+
+        if (nr == from_row && nc == from_col) {
+            continue;
+        }
+
+        enemy_piece = state->board[nr][nc];
+        if (enemy_piece[0] == '\0') {
+            continue;
+        }
+
+        if (piece_camp(enemy_piece) != self_camp && piece_rank(enemy_piece) > self_rank) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool try_computer_evasion_move(GameState *state) {
+    static const int dirs[4][2] = {{-1,0},{1,0},{0,-1},{0,1}};
+    int row;
+    int col;
+    int d;
+
+    for (row = 0; row < TEAMWORK_ROWS; ++row) {
+        for (col = 0; col < TEAMWORK_COLS; ++col) {
+            if (!state->revealed[row][col]) {
+                continue;
+            }
+            if (!is_computer_piece(state->board[row][col])) {
+                continue;
+            }
+            if (!is_threatened_at(state, row, col)) {
+                continue;
+            }
+
+            for (d = 0; d < 4; ++d) {
+                int nr = row + dirs[d][0];
+                int nc = col + dirs[d][1];
+
+                if (!can_move(state, row, col, nr, nc)) {
+                    continue;
+                }
+                if (is_threatened_after_move(state, row, col, nr, nc)) {
+                    continue;
+                }
+                return move_piece(state, row, col, nr, nc);
+            }
+        }
+    }
+
+    return false;
+}
+
 static const char *const kPieces[32] = {
     "redmaster.bmp",
     "redknight.bmp", "redknight.bmp",
@@ -240,12 +399,17 @@ bool computer_move(GameState *state) {
     int pick;
     int d;
 
+    if (try_computer_evasion_move(state)) {
+        return true;
+    }
+
     movable_count = 0;
 
     for (row = 0; row < TEAMWORK_ROWS; ++row) {
         for (col = 0; col < TEAMWORK_COLS; ++col) {
             if (!state->revealed[row][col]) continue;
             if (state->board[row][col][0] == '\0') continue;
+            if (!is_computer_piece(state->board[row][col])) continue;
 
             for (d = 0; d < 4; ++d) {
                 int nr = row + dirs[d][0];
