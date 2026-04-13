@@ -36,7 +36,8 @@ void teamwork_run_game_session(GameState *state, const TeamworkUi *ui, int playe
         ui->draw_board(ui->context, state);
     }
 
-    while (!all_revealed(state)) {
+    /* 第六步：修改迴圈判斷式，增加 state->move_count < 20 的條件 */
+    while (!all_revealed(state) && state->move_count < 20) {
         TeamworkUiEvent event;
 
         event = ui->poll_event(ui->context, &mouse_x, &mouse_y);
@@ -48,7 +49,8 @@ void teamwork_run_game_session(GameState *state, const TeamworkUi *ui, int playe
         if (event == TEAMWORK_UI_EVENT_CLICK && player_select_or_move(state, mouse_x, mouse_y)) {
             ui->draw_board(ui->context, state);
 
-            if (!all_revealed(state)) {
+            /* 電腦行動前也要檢查步數是否已滿 */
+            if (!all_revealed(state) && state->move_count < 20) {
                 ui->delay_ms(ui->context, 500);
                 computer_move(state);
                 ui->draw_board(ui->context, state);
@@ -56,5 +58,10 @@ void teamwork_run_game_session(GameState *state, const TeamworkUi *ui, int playe
         }
 
         ui->delay_ms(ui->context, 30);
+    }
+
+    /* 遊戲結束後的提示（可選） */
+    if (state->move_count >= 20) {
+        printf("\nGame Over: Reached maximum moves (20).\n");
     }
 }

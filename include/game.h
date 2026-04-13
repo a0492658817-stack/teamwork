@@ -22,6 +22,7 @@ typedef struct {
     bool revealed[TEAMWORK_ROWS][TEAMWORK_COLS];
     int  selected_row;
     int  selected_col;
+    int  move_count; 
 } GameState;
 
 void init_board(GameState *state);

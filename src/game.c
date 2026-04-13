@@ -1,5 +1,4 @@
 #include "game.h"
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -74,6 +73,8 @@ bool player_flip_from_click(GameState *state, int mouse_x, int mouse_y) {
     }
 
     state->revealed[row][col] = true;
+    /* 第六步：翻棋成功，步數加一 */
+    state->move_count++;
     return true;
 }
 
@@ -104,6 +105,8 @@ void init_board(GameState *state) {
     }
     state->selected_row = -1;
     state->selected_col = -1;
+    /* 第六步：初始化總步數為 0 */
+    state->move_count = 0;
 }
 
 bool computer_flip(GameState *state) {
@@ -132,6 +135,8 @@ bool computer_flip(GameState *state) {
     {
         int pick = rand() % hidden_count;
         state->revealed[hidden_rows[pick]][hidden_cols[pick]] = true;
+        /* 第六步：電腦翻棋成功，步數加一 */
+        state->move_count++;
     }
     return true;
 }
@@ -181,6 +186,8 @@ bool move_piece(GameState *state,
     state->board[from_row][from_col][0] = '\0';
     state->revealed[to_row][to_col]   = true;
     state->revealed[from_row][from_col] = true;
+    /* 第六步：移動成功，步數加一 */
+    state->move_count++;
     return true;
 }
 
@@ -196,6 +203,8 @@ bool player_select_or_move(GameState *state, int mouse_x, int mouse_y) {
     if (state->selected_row == -1) {
         if (!state->revealed[row][col]) {
             state->revealed[row][col] = true;
+            /* 第六步：玩家直接翻棋，步數加一 */
+            state->move_count++;
             return true;
         }
         if (state->board[row][col][0] != '\0') {
@@ -215,6 +224,7 @@ bool player_select_or_move(GameState *state, int mouse_x, int mouse_y) {
     if (move_piece(state, state->selected_row, state->selected_col, row, col)) {
         state->selected_row = -1;
         state->selected_col = -1;
+        /* 注意：move_count 已經在 move_piece 函式內增加，這裡不需要重複加 */
         return true;
     }
 
