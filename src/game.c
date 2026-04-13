@@ -29,16 +29,103 @@ static int piece_rank(const char *piece_name) {
     return 0;
 }
 
-static bool is_computer_piece(const char *piece_name) {
-    return piece_camp(piece_name) == 2;
+static bool is_computer_piece(const GameState *state, const char *piece_name) {
+    return piece_camp(piece_name) == state->computer_camp;
+}
+
+static bool is_player_piece(const GameState *state, const char *piece_name) {
+    return piece_camp(piece_name) == state->player_camp;
+}
+
+static void record_player_action(GameState *state) {
+    state->player_moves++;
+    state->move_count++;
+}
+
+static void record_computer_action(GameState *state) {
+    state->computer_moves++;
+    state->move_count++;
+}
+
+static bool is_adjacent_orthogonal(int from_row, int from_col, int to_row, int to_col) {
+    int dr = to_row - from_row;
+    int dc = to_col - from_col;
+
+    return (dr == 1 && dc == 0) || (dr == -1 && dc == 0) ||
+           (dr == 0 && dc == 1) || (dr == 0 && dc == -1);
+}
+
+static int count_intervening_pieces_on_line(const GameState *state,
+                                            int from_row, int from_col,
+                                            int to_row,   int to_col) {
+    int screens;
+
+    if (from_row == to_row) {
+        int step = (to_col > from_col) ? 1 : -1;
+        int c;
+
+        screens = 0;
+        for (c = from_col + step; c != to_col; c += step) {
+            if (state->board[from_row][c][0] != '\0') {
+                screens++;
+            }
+        }
+        return screens;
+    }
+
+    if (from_col == to_col) {
+        int step = (to_row > from_row) ? 1 : -1;
+        int r;
+
+        screens = 0;
+        for (r = from_row + step; r != to_row; r += step) {
+            if (state->board[r][from_col][0] != '\0') {
+                screens++;
+            }
+        }
+        return screens;
+    }
+
+    return -1;
+}
+
+static bool try_computer_capture_move(GameState *state) {
+    int row;
+    int col;
+    int target_row;
+    int target_col;
+
+    for (row = 0; row < TEAMWORK_ROWS; ++row) {
+        for (col = 0; col < TEAMWORK_COLS; ++col) {
+            if (!state->revealed[row][col]) {
+                continue;
+            }
+            if (!is_computer_piece(state, state->board[row][col])) {
+                continue;
+            }
+
+            for (target_row = 0; target_row < TEAMWORK_ROWS; ++target_row) {
+                for (target_col = 0; target_col < TEAMWORK_COLS; ++target_col) {
+                    if (!can_capture(state, row, col, target_row, target_col)) {
+                        continue;
+                    }
+                    if (move_piece(state, row, col, target_row, target_col)) {
+                        record_computer_action(state);
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    return false;
 }
 
 static bool is_threatened_at(const GameState *state, int row, int col) {
-    static const int dirs[4][2] = {{-1,0},{1,0},{0,-1},{0,1}};
     const char *self_piece;
     int self_camp;
-    int self_rank;
-    int d;
+    int enemy_row;
+    int enemy_col;
 
     if (!in_board(row, col) || !state->revealed[row][col]) {
         return false;
@@ -50,28 +137,19 @@ static bool is_threatened_at(const GameState *state, int row, int col) {
     }
 
     self_camp = piece_camp(self_piece);
-    self_rank = piece_rank(self_piece);
 
-    if (self_camp == 0 || self_rank == 0) {
+    if (self_camp == 0) {
         return false;
     }
 
-    for (d = 0; d < 4; ++d) {
-        int nr = row + dirs[d][0];
-        int nc = col + dirs[d][1];
-        const char *enemy_piece;
-
-        if (!in_board(nr, nc) || !state->revealed[nr][nc]) {
-            continue;
-        }
-
-        enemy_piece = state->board[nr][nc];
-        if (enemy_piece[0] == '\0') {
-            continue;
-        }
-
-        if (piece_camp(enemy_piece) != self_camp && piece_rank(enemy_piece) > self_rank) {
-            return true;
+    for (enemy_row = 0; enemy_row < TEAMWORK_ROWS; ++enemy_row) {
+        for (enemy_col = 0; enemy_col < TEAMWORK_COLS; ++enemy_col) {
+            if (piece_camp(state->board[enemy_row][enemy_col]) == self_camp) {
+                continue;
+            }
+            if (can_capture(state, enemy_row, enemy_col, row, col)) {
+                return true;
+            }
         }
     }
 
@@ -81,48 +159,25 @@ static bool is_threatened_at(const GameState *state, int row, int col) {
 static bool is_threatened_after_move(const GameState *state,
                                      int from_row, int from_col,
                                      int to_row,   int to_col) {
-    static const int dirs[4][2] = {{-1,0},{1,0},{0,-1},{0,1}};
-    const char *self_piece;
-    int self_camp;
-    int self_rank;
-    int d;
+    GameState simulated;
 
     if (!in_board(to_row, to_col)) {
         return false;
     }
-
-    self_piece = state->board[from_row][from_col];
-    self_camp = piece_camp(self_piece);
-    self_rank = piece_rank(self_piece);
-
-    if (self_camp == 0 || self_rank == 0) {
+    if (!in_board(from_row, from_col)) {
+        return false;
+    }
+    if (state->board[from_row][from_col][0] == '\0') {
         return false;
     }
 
-    for (d = 0; d < 4; ++d) {
-        int nr = to_row + dirs[d][0];
-        int nc = to_col + dirs[d][1];
-        const char *enemy_piece;
+    simulated = *state;
+    strcpy(simulated.board[to_row][to_col], simulated.board[from_row][from_col]);
+    simulated.board[from_row][from_col][0] = '\0';
+    simulated.revealed[to_row][to_col] = true;
+    simulated.revealed[from_row][from_col] = true;
 
-        if (!in_board(nr, nc) || !state->revealed[nr][nc]) {
-            continue;
-        }
-
-        if (nr == from_row && nc == from_col) {
-            continue;
-        }
-
-        enemy_piece = state->board[nr][nc];
-        if (enemy_piece[0] == '\0') {
-            continue;
-        }
-
-        if (piece_camp(enemy_piece) != self_camp && piece_rank(enemy_piece) > self_rank) {
-            return true;
-        }
-    }
-
-    return false;
+    return is_threatened_at(&simulated, to_row, to_col);
 }
 
 static bool try_computer_evasion_move(GameState *state) {
@@ -136,7 +191,7 @@ static bool try_computer_evasion_move(GameState *state) {
             if (!state->revealed[row][col]) {
                 continue;
             }
-            if (!is_computer_piece(state->board[row][col])) {
+            if (!is_computer_piece(state, state->board[row][col])) {
                 continue;
             }
             if (!is_threatened_at(state, row, col)) {
@@ -153,7 +208,10 @@ static bool try_computer_evasion_move(GameState *state) {
                 if (is_threatened_after_move(state, row, col, nr, nc)) {
                     continue;
                 }
-                return move_piece(state, row, col, nr, nc);
+                if (move_piece(state, row, col, nr, nc)) {
+                    record_computer_action(state);
+                    return true;
+                }
             }
         }
     }
@@ -232,8 +290,7 @@ bool player_flip_from_click(GameState *state, int mouse_x, int mouse_y) {
     }
 
     state->revealed[row][col] = true;
-    /* 第六步：翻棋成功，步數加一 */
-    state->move_count++;
+    record_player_action(state);
     return true;
 }
 
@@ -264,8 +321,11 @@ void init_board(GameState *state) {
     }
     state->selected_row = -1;
     state->selected_col = -1;
-    /* 第六步：初始化總步數為 0 */
     state->move_count = 0;
+    state->player_moves = 0;
+    state->computer_moves = 0;
+    state->player_camp = TEAMWORK_CAMP_RED;
+    state->computer_camp = TEAMWORK_CAMP_BLACK;
 }
 
 bool computer_flip(GameState *state) {
@@ -294,18 +354,62 @@ bool computer_flip(GameState *state) {
     {
         int pick = rand() % hidden_count;
         state->revealed[hidden_rows[pick]][hidden_cols[pick]] = true;
-        /* 第六步：電腦翻棋成功，步數加一 */
-        state->move_count++;
+        record_computer_action(state);
     }
     return true;
+}
+
+bool can_capture(const GameState *state,
+                 int from_row, int from_col,
+                 int to_row,   int to_col) {
+    int from_camp;
+    int to_camp;
+    int from_rank;
+    int to_rank;
+    int screens;
+
+    if (!in_board(from_row, from_col) || !in_board(to_row, to_col)) {
+        return false;
+    }
+    if (!state->revealed[from_row][from_col] || !state->revealed[to_row][to_col]) {
+        return false;
+    }
+    if (state->board[from_row][from_col][0] == '\0' || state->board[to_row][to_col][0] == '\0') {
+        return false;
+    }
+
+    from_camp = piece_camp(state->board[from_row][from_col]);
+    to_camp = piece_camp(state->board[to_row][to_col]);
+    from_rank = piece_rank(state->board[from_row][from_col]);
+    to_rank = piece_rank(state->board[to_row][to_col]);
+
+    if (from_camp == 0 || to_camp == 0 || from_camp == to_camp) {
+        return false;
+    }
+
+    if (from_rank == 2) {
+        screens = count_intervening_pieces_on_line(state, from_row, from_col, to_row, to_col);
+        return screens == 1;
+    }
+
+    if (!is_adjacent_orthogonal(from_row, from_col, to_row, to_col)) {
+        return false;
+    }
+
+    if (from_rank == 1 && to_rank == 7) {
+        return true;
+    }
+
+    if (from_rank == 7 && to_rank == 1) {
+        return false;
+    }
+
+    return from_rank >= to_rank;
 }
 
 bool can_move(const GameState *state,
               int from_row, int from_col,
               int to_row,   int to_col) {
-    int dr;
-    int dc;
-
     if (!in_board(from_row, from_col) || !in_board(to_row, to_col)) {
         return false;
     }
@@ -316,22 +420,15 @@ bool can_move(const GameState *state,
         return false;
     }
 
-    dr = to_row - from_row;
-    dc = to_col - from_col;
-
-    if (!((dr == 1 && dc == 0) || (dr == -1 && dc == 0) ||
-          (dr == 0 && dc == 1) || (dr == 0 && dc == -1))) {
-        return false;
-    }
-
     if (!state->revealed[to_row][to_col]) {
         return false;
     }
-    if (state->board[to_row][to_col][0] != '\0') {
-        return false;
+
+    if (state->board[to_row][to_col][0] == '\0') {
+        return is_adjacent_orthogonal(from_row, from_col, to_row, to_col);
     }
 
-    return true;
+    return can_capture(state, from_row, from_col, to_row, to_col);
 }
 
 bool move_piece(GameState *state,
@@ -345,8 +442,6 @@ bool move_piece(GameState *state,
     state->board[from_row][from_col][0] = '\0';
     state->revealed[to_row][to_col]   = true;
     state->revealed[from_row][from_col] = true;
-    /* 第六步：移動成功，步數加一 */
-    state->move_count++;
     return true;
 }
 
@@ -362,11 +457,10 @@ bool player_select_or_move(GameState *state, int mouse_x, int mouse_y) {
     if (state->selected_row == -1) {
         if (!state->revealed[row][col]) {
             state->revealed[row][col] = true;
-            /* 第六步：玩家直接翻棋，步數加一 */
-            state->move_count++;
+            record_player_action(state);
             return true;
         }
-        if (state->board[row][col][0] != '\0') {
+        if (state->board[row][col][0] != '\0' && is_player_piece(state, state->board[row][col])) {
             state->selected_row = row;
             state->selected_col = col;
             return false;
@@ -383,11 +477,11 @@ bool player_select_or_move(GameState *state, int mouse_x, int mouse_y) {
     if (move_piece(state, state->selected_row, state->selected_col, row, col)) {
         state->selected_row = -1;
         state->selected_col = -1;
-        /* 注意：move_count 已經在 move_piece 函式內增加，這裡不需要重複加 */
+        record_player_action(state);
         return true;
     }
 
-    if (state->revealed[row][col] && state->board[row][col][0] != '\0') {
+    if (state->revealed[row][col] && state->board[row][col][0] != '\0' && is_player_piece(state, state->board[row][col])) {
         state->selected_row = row;
         state->selected_col = col;
     } else {
@@ -400,14 +494,16 @@ bool player_select_or_move(GameState *state, int mouse_x, int mouse_y) {
 bool computer_move(GameState *state) {
     int row;
     int col;
-    int dr;
-    int dc;
     int dirs[4][2] = {{-1,0},{1,0},{0,-1},{0,1}};
     int movable_from_rows[TEAMWORK_ROWS * TEAMWORK_COLS];
     int movable_from_cols[TEAMWORK_ROWS * TEAMWORK_COLS];
     int movable_count;
     int pick;
     int d;
+
+    if (try_computer_capture_move(state)) {
+        return true;
+    }
 
     if (try_computer_evasion_move(state)) {
         return true;
@@ -419,7 +515,7 @@ bool computer_move(GameState *state) {
         for (col = 0; col < TEAMWORK_COLS; ++col) {
             if (!state->revealed[row][col]) continue;
             if (state->board[row][col][0] == '\0') continue;
-            if (!is_computer_piece(state->board[row][col])) continue;
+            if (!is_computer_piece(state, state->board[row][col])) continue;
 
             for (d = 0; d < 4; ++d) {
                 int nr = row + dirs[d][0];
@@ -450,6 +546,7 @@ bool computer_move(GameState *state) {
             int nr = row + dirs[di][0];
             int nc = col + dirs[di][1];
             if (move_piece(state, row, col, nr, nc)) {
+                record_computer_action(state);
                 return true;
             }
         }

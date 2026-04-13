@@ -70,14 +70,64 @@ static void draw_board(void *context, const GameState *state) {
     }
 }
 
+static int prompt_turn_order_click_windows(void) {
+    int player_x1 = 140;
+    int player_y1 = 180;
+    int player_x2 = 360;
+    int player_y2 = 270;
+    int computer_x1 = 440;
+    int computer_y1 = 180;
+    int computer_x2 = 660;
+    int computer_y2 = 270;
+
+    printf("[LOG] Click left box for Player First, right box for Computer First.\n");
+    fflush(stdout);
+
+    while (1) {
+        int x;
+        int y;
+
+        cleardevice();
+        setcolor(WHITE);
+        outtextxy(180, 120, "Select turn order by clicking a box");
+
+        setfillstyle(SOLID_FILL, GREEN);
+        bar(player_x1, player_y1, player_x2, player_y2);
+        setcolor(WHITE);
+        rectangle(player_x1, player_y1, player_x2, player_y2);
+        outtextxy(player_x1 + 60, player_y1 + 35, "玩家先手");
+
+        setfillstyle(SOLID_FILL, RED);
+        bar(computer_x1, computer_y1, computer_x2, computer_y2);
+        setcolor(WHITE);
+        rectangle(computer_x1, computer_y1, computer_x2, computer_y2);
+        outtextxy(computer_x1 + 60, computer_y1 + 35, "電腦先手");
+
+        if (ismouseclick(WM_LBUTTONDOWN)) {
+            getmouseclick(WM_LBUTTONDOWN, x, y);
+
+            if (x >= player_x1 && x <= player_x2 && y >= player_y1 && y <= player_y2) {
+                printf("[LOG] Turn order selected: Player first.\n");
+                fflush(stdout);
+                return 1;
+            }
+            if (x >= computer_x1 && x <= computer_x2 && y >= computer_y1 && y <= computer_y2) {
+                printf("[LOG] Turn order selected: Computer first.\n");
+                fflush(stdout);
+                return 2;
+            }
+        }
+
+        delay(16);
+    }
+}
+
 int teamwork_run_platform_app(void) {
     TeamworkUi ui;
     GameState state;
     int player_first;
     int window_id;
     int graph_error;
-
-    player_first = teamwork_prompt_turn_order();
 
     printf("[teamwork] starting WinBGIm...\n");
     fflush(stdout);
@@ -100,6 +150,7 @@ int teamwork_run_platform_app(void) {
     cleardevice();
 
     init_board(&state);
+    player_first = prompt_turn_order_click_windows();
 
     ui.context = NULL;
     ui.poll_event = poll_windows_event;

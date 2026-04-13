@@ -10,6 +10,18 @@
 #include <SDL2/SDL.h>
 #endif
 
+#if defined(TEAMWORK_USE_SDL2_TTF)
+#if defined(__has_include)
+#if __has_include(<SDL2/SDL_ttf.h>)
+#include <SDL2/SDL_ttf.h>
+#else
+#include <SDL_ttf.h>
+#endif
+#else
+#include <SDL2/SDL_ttf.h>
+#endif
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -132,6 +144,151 @@ static void draw_board(void *context, const GameState *state) {
     SDL_RenderPresent(ui->renderer);
 }
 
+#if defined(TEAMWORK_USE_SDL2_TTF)
+static TTF_Font *load_turn_order_font(void) {
+    static const char *font_paths[] = {
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
+        "/Library/Fonts/Arial Unicode.ttf"
+    };
+    int i;
+
+    for (i = 0; i < (int)(sizeof(font_paths) / sizeof(font_paths[0])); ++i) {
+        TTF_Font *font = TTF_OpenFont(font_paths[i], 28);
+        if (font != NULL) {
+            return font;
+        }
+    }
+
+    return NULL;
+}
+
+static void draw_text_center(SDL_Renderer *renderer,
+                             TTF_Font *font,
+                             const char *text,
+                             SDL_Rect rect,
+                             SDL_Color color) {
+    SDL_Surface *surface;
+    SDL_Texture *texture;
+    SDL_Rect dst;
+
+    if (font == NULL || text == NULL || text[0] == '\0') {
+        return;
+    }
+
+    surface = TTF_RenderUTF8_Blended(font, text, color);
+    if (surface == NULL) {
+        return;
+    }
+
+    texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (texture == NULL) {
+        SDL_FreeSurface(surface);
+        return;
+    }
+
+    dst.w = surface->w;
+    dst.h = surface->h;
+    dst.x = rect.x + (rect.w - dst.w) / 2;
+    dst.y = rect.y + (rect.h - dst.h) / 2;
+
+    SDL_FreeSurface(surface);
+    SDL_RenderCopy(renderer, texture, NULL, &dst);
+    SDL_DestroyTexture(texture);
+}
+#endif
+
+static int prompt_turn_order_click_sdl(SDL_Renderer *renderer) {
+    SDL_Rect player_btn = {140, 180, 220, 90};
+    SDL_Rect computer_btn = {440, 180, 220, 90};
+#if defined(TEAMWORK_USE_SDL2_TTF)
+    TTF_Font *font = NULL;
+#endif
+
+    printf("[LOG] Click left box for Player First, right box for Computer First.\n");
+
+#if defined(TEAMWORK_USE_SDL2_TTF)
+    if (TTF_Init() == 0) {
+        font = load_turn_order_font();
+    }
+#endif
+
+    while (true) {
+        SDL_Event event;
+
+        SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
+        SDL_RenderClear(renderer);
+
+        SDL_SetRenderDrawColor(renderer, 0, 160, 80, 255);
+        SDL_RenderFillRect(renderer, &player_btn);
+        SDL_SetRenderDrawColor(renderer, 160, 80, 0, 255);
+        SDL_RenderFillRect(renderer, &computer_btn);
+
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_RenderDrawRect(renderer, &player_btn);
+        SDL_RenderDrawRect(renderer, &computer_btn);
+
+    #if defined(TEAMWORK_USE_SDL2_TTF)
+        {
+            SDL_Color text_color = {255, 255, 255, 255};
+            draw_text_center(renderer, font, "玩家先手", player_btn, text_color);
+            draw_text_center(renderer, font, "電腦先手", computer_btn, text_color);
+        }
+    #endif
+
+        SDL_RenderPresent(renderer);
+
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+#if defined(TEAMWORK_USE_SDL2_TTF)
+                if (font != NULL) {
+                    TTF_CloseFont(font);
+                }
+                if (TTF_WasInit()) {
+                    TTF_Quit();
+                }
+#endif
+                return 1;
+            }
+
+            if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
+                int x = event.button.x;
+                int y = event.button.y;
+
+                if (x >= player_btn.x && x < player_btn.x + player_btn.w &&
+                    y >= player_btn.y && y < player_btn.y + player_btn.h) {
+                    printf("[LOG] Turn order selected: Player first.\n");
+#if defined(TEAMWORK_USE_SDL2_TTF)
+                    if (font != NULL) {
+                        TTF_CloseFont(font);
+                    }
+                    if (TTF_WasInit()) {
+                        TTF_Quit();
+                    }
+#endif
+                    return 1;
+                }
+
+                if (x >= computer_btn.x && x < computer_btn.x + computer_btn.w &&
+                    y >= computer_btn.y && y < computer_btn.y + computer_btn.h) {
+                    printf("[LOG] Turn order selected: Computer first.\n");
+#if defined(TEAMWORK_USE_SDL2_TTF)
+                    if (font != NULL) {
+                        TTF_CloseFont(font);
+                    }
+                    if (TTF_WasInit()) {
+                        TTF_Quit();
+                    }
+#endif
+                    return 2;
+                }
+            }
+        }
+
+        SDL_Delay(16);
+    }
+}
+
 int teamwork_run_platform_app(void) {
     GameState state;
     TextureCacheEntry texture_cache[TEAMWORK_ROWS * TEAMWORK_COLS + 1];
@@ -142,8 +299,6 @@ int teamwork_run_platform_app(void) {
     SDL_Renderer *renderer;
     int player_first;
     int index;
-
-    player_first = teamwork_prompt_turn_order();
 
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
@@ -182,6 +337,8 @@ int teamwork_run_platform_app(void) {
     ui.poll_event = poll_sdl_event;
     ui.draw_board = draw_board;
     ui.delay_ms = delay_sdl;
+
+    player_first = prompt_turn_order_click_sdl(renderer);
 
     teamwork_run_game_session(&state, &ui, player_first);
 

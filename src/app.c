@@ -29,16 +29,26 @@ void teamwork_run_game_session(GameState *state, const TeamworkUi *ui, int playe
         return;
     }
 
-    ui->draw_board(ui->context, state);
-
-    if (player_first == 2) {
-        ui->delay_ms(ui->context, 500);
-        computer_move(state);
-        ui->draw_board(ui->context, state);
+    if (player_first == 1) {
+        state->player_camp = TEAMWORK_CAMP_RED;
+        state->computer_camp = TEAMWORK_CAMP_BLACK;
+    } else {
+        state->player_camp = TEAMWORK_CAMP_BLACK;
+        state->computer_camp = TEAMWORK_CAMP_RED;
     }
 
-    /* 第六步：修改迴圈判斷式，增加 state->move_count < 20 的條件 */
-    while (!all_revealed(state) && state->move_count < 20) {
+    ui->draw_board(ui->context, state);
+
+    if (player_first == 2 && state->computer_moves < TEAMWORK_MAX_COMPUTER_MOVES) {
+        ui->delay_ms(ui->context, 500);
+        if (computer_move(state)) {
+            printf("[LOG] Computer move #%d/%d completed.\n", state->computer_moves, TEAMWORK_MAX_COMPUTER_MOVES);
+            ui->draw_board(ui->context, state);
+        }
+    }
+
+        while (state->player_moves < TEAMWORK_MAX_PLAYER_MOVES ||
+            state->computer_moves < TEAMWORK_MAX_COMPUTER_MOVES) {
         TeamworkUiEvent event;
 
         event = ui->poll_event(ui->context, &mouse_x, &mouse_y);
@@ -48,21 +58,25 @@ void teamwork_run_game_session(GameState *state, const TeamworkUi *ui, int playe
         }
 
         if (event == TEAMWORK_UI_EVENT_CLICK && player_select_or_move(state, mouse_x, mouse_y)) {
+            printf("[LOG] Player move #%d/%d completed.\n", state->player_moves, TEAMWORK_MAX_PLAYER_MOVES);
             ui->draw_board(ui->context, state);
 
-            /* 電腦行動前也要檢查步數是否已滿 */
-            if (!all_revealed(state) && state->move_count < 20) {
+            if (state->computer_moves < TEAMWORK_MAX_COMPUTER_MOVES) {
                 ui->delay_ms(ui->context, 500);
-                computer_move(state);
-                ui->draw_board(ui->context, state);
+                if (computer_move(state)) {
+                    printf("[LOG] Computer move #%d/%d completed.\n", state->computer_moves, TEAMWORK_MAX_COMPUTER_MOVES);
+                    ui->draw_board(ui->context, state);
+                }
             }
         }
 
         ui->delay_ms(ui->context, 30);
     }
 
-    /* 遊戲結束後的提示（可選） */
-    if (state->move_count >= 20) {
-        printf("\nGame Over: Reached maximum moves (20).\n");
-    }
+    printf("\n[LOG] Game Over. Player=%d/%d, Computer=%d/%d, Total=%d\n",
+           state->player_moves,
+           TEAMWORK_MAX_PLAYER_MOVES,
+           state->computer_moves,
+           TEAMWORK_MAX_COMPUTER_MOVES,
+           state->move_count);
 }
