@@ -3,6 +3,10 @@
 
 #include "game.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
     TEAMWORK_UI_EVENT_NONE = 0,
     TEAMWORK_UI_EVENT_CLICK,
@@ -18,5 +22,9 @@ typedef struct {
 
 int teamwork_prompt_turn_order(void);
 void teamwork_run_game_session(GameState *state, const TeamworkUi *ui, int player_first);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

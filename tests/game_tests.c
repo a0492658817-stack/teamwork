@@ -157,6 +157,35 @@ static void test_player_then_computer_single_reveal_each(void) {
     assert(count_revealed(&state) == 2);
 }
 
+static void test_computer_evasion_when_threatened(void) {
+    GameState state;
+    int row;
+    int col;
+
+    memset(&state, 0, sizeof(state));
+    state.selected_row = -1;
+    state.selected_col = -1;
+
+    for (row = 0; row < TEAMWORK_ROWS; ++row) {
+        for (col = 0; col < TEAMWORK_COLS; ++col) {
+            state.revealed[row][col] = true;
+            state.board[row][col][0] = '\0';
+        }
+    }
+
+    /* Computer piece (black soldier) is threatened by a stronger red master on its right. */
+    strcpy(state.board[1][1], "blacksoldier.bmp");
+    strcpy(state.board[1][2], "redmaster.bmp");
+
+    /* Block up/down so left is the only legal escape square. */
+    strcpy(state.board[0][1], "blackcar.bmp");
+    strcpy(state.board[2][1], "blackhorse.bmp");
+
+    assert(computer_move(&state));
+    assert(state.board[1][1][0] == '\0');
+    assert(strcmp(state.board[1][0], "blacksoldier.bmp") == 0);
+}
+
 int main(void) {
     test_initialization();
     test_board_math();
@@ -165,5 +194,6 @@ int main(void) {
     test_player_invalid_click_no_flip();
     test_player_already_revealed_click_no_flip();
     test_player_then_computer_single_reveal_each();
+    test_computer_evasion_when_threatened();
     return 0;
 }

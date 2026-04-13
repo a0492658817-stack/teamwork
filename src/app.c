@@ -8,6 +8,7 @@ int teamwork_prompt_turn_order(void) {
     printf("1. Player first\n");
     printf("2. Computer first\n");
     printf("Enter: ");
+    fflush(stdout);
 
     if (scanf("%d", &player_first) != 1) {
         player_first = 1;
